@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import Script from "next/script";
 import { useState } from "react";
 import Card from '../components/Card';
@@ -50,21 +50,14 @@ const pricingPlans = [
 const Home = () => {
   const [amount, setAmount] = useState(0);
 
-  const handleBuyNow = async (planAmount) => {
-    setAmount(planAmount);
-    // Small delay to ensure state is updated
-    await new Promise(resolve => setTimeout(resolve, 0));
-    createOrder();
-  };
-
-  const createOrder = async () => {
+  const handleBuyNow = useCallback(async (planAmount) => {
     try {
       const res = await fetch("/api/create-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amount: amount * 100 }),
+        body: JSON.stringify({ amount: planAmount * 100 }), // Use planAmount directly
       });
 
       if (!res.ok) {
@@ -79,6 +72,7 @@ const Home = () => {
       const paymentData = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         order_id: data.id,
+        amount: planAmount * 100, // Add amount to payment data
         handler: async function (response) {
           try {
             const verifyRes = await fetch("/api/verify-order", {
@@ -116,7 +110,7 @@ const Home = () => {
       console.error("Order creation error:", error);
       alert("Failed to create order");
     }
-  };
+  }, []); // Empty dependency array since we don't use any external values
 
   return (
     <div className="min-h-screen p-8">

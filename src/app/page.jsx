@@ -3,6 +3,7 @@
 import React, { useCallback } from 'react';
 import Script from "next/script";
 import { useState } from "react";
+import axios from 'axios';
 import Card from '../components/Card';
 
 const pricingPlans = [
@@ -52,19 +53,10 @@ const Home = () => {
 
   const handleBuyNow = useCallback(async (planAmount) => {
     try {
-      const res = await fetch("/api/create-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ amount: planAmount * 100 }), // Use planAmount directly
+      const { data } = await axios.post('/api/create-order', {
+        amount: planAmount * 100
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
       if (!data || !data.id) {
         throw new Error('Invalid response data');
       }
@@ -72,33 +64,22 @@ const Home = () => {
       const paymentData = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         order_id: data.id,
-        amount: planAmount * 100, // Add amount to payment data
+        amount: planAmount * 100,
         handler: async function (response) {
           try {
-            const verifyRes = await fetch("/api/verify-order", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                orderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }),
+            const { data: verifyData } = await axios.post('/api/verify-order', {
+              orderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
             });
 
-            if (!verifyRes.ok) {
-              throw new Error(`HTTP error! status: ${verifyRes.status}`);
-            }
-
-            const verifyData = await verifyRes.json();
             if (verifyData.isOk) {
               alert("Payment successful");
             } else {
               alert("Payment verification failed");
             }
           } catch (error) {
-            console.error("Verification error:", error);
+            console.error("Verification error:", error.response?.data || error.message);
             alert("Payment verification failed");
           }
         },
@@ -107,10 +88,10 @@ const Home = () => {
       const payment = new window.Razorpay(paymentData);
       payment.open();
     } catch (error) {
-      console.error("Order creation error:", error);
+      console.error("Order creation error:", error.response?.data || error.message);
       alert("Failed to create order");
     }
-  }, []); // Empty dependency array since we don't use any external values
+  }, []);
 
   return (
     <div className="min-h-screen p-8">
